@@ -336,7 +336,7 @@
             <div class="admin-section">
                 <h3>Einsatz-Stichworte verwalten</h3>
                 <form id="addKeywordForm" style="display: flex; gap: 8px; margin-bottom: 8px;">
-                    <input type="text" id="newKeyName" placeholder="Stichwort" required style="flex: 2;">
+                    <input type="text" id="newKeyName" placeholder="Neues Stichwort" required style="flex: 2;">
                     <button type="submit" style="flex: 1;">Hinzufügen</button>
                 </form>
                 <div id="adminKeywordList" style="max-height: 100px; overflow-y: auto;"></div>
@@ -563,7 +563,6 @@
         appId: "APP_ID"
     };
 
-    // Fallback, falls Firebase nicht konfiguriert wurde
     try {
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -574,10 +573,9 @@
 
     const db = typeof firebase !== 'undefined' && firebase.apps.length > 0 ? firebase.firestore() : null;
 
-    // Lokaler Cache für Echtzeitdaten aus der Cloud
     let cloudData = {
         accounts: [{ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true }],
-        keywords: [{ name: 'Kleinbrand (Übung)' }, { name: 'Technische Hilfeleistung' }],
+        keywords: [], // Startet komplett leer ohne Vorgaben
         incidents: [],
         persons: [],
         vehicles: [],
@@ -592,14 +590,12 @@
         document.getElementById('liveClock').innerText = new Date().toTimeString().split(' ')[0];
     }, 1000);
 
-    // Echtzeit-Listener starten, sobald die App geladen wird
     function initCloudSync() {
         if (!db) {
             alert("Achtung: Firebase ist nicht verbunden! Bitte trage oben im Skript deine Firebase-Konfigurationsdaten ein.");
             return;
         }
 
-        // Live Sync Accounts (Sicherstellen, dass Standard-Admin immer existiert, ohne bestehende zu überschreiben)
         db.collection("config_accounts").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
@@ -610,16 +606,14 @@
             }
         });
 
-        // Live Sync Keywords
         db.collection("config_keywords").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
-            if(items.length > 0) cloudData.keywords = items;
+            cloudData.keywords = items; // Übernimmt genau das, was in der Cloud gespeichert ist (auch leer)
             loadFormInputs();
             if (currentUser && currentUser.isAdmin) renderAdminLists();
         });
 
-        // Live Sync Incidents
         db.collection("incidents").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
@@ -627,7 +621,6 @@
             renderTable();
         });
 
-        // Live Sync Persons
         db.collection("persons").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
@@ -636,7 +629,6 @@
             updateAssignDropdowns();
         });
 
-        // Live Sync Vehicles
         db.collection("vehicles").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
@@ -645,7 +637,6 @@
             updateAssignDropdowns();
         });
 
-        // Live Sync Assignments
         db.collection("assignments").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
@@ -653,7 +644,6 @@
             renderAssignments();
         });
 
-        // Live Sync Logs
         db.collection("logs").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
@@ -667,8 +657,7 @@
         let snap = await db.collection("config_accounts").get();
         if(snap.empty) {
             db.collection("config_accounts").doc('adminedp').set({ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true });
-            db.collection("config_keywords").doc('Kleinbrand (Übung)').set({ name: 'Kleinbrand (Übung)' });
-            db.collection("config_keywords").doc('Technische Hilfeleistung').set({ name: 'Technische Hilfeleistung' });
+            // Keine Standard-Stichworte mehr angelegt
         }
     }
 
@@ -734,6 +723,10 @@
     function loadFormInputs() {
         let keySelect = document.getElementById('incType');
         keySelect.innerHTML = '';
+        if (cloudData.keywords.length === 0) {
+            keySelect.innerHTML = `<option value="">-- Keine Stichworte vorhanden --</option>`;
+            return;
+        }
         cloudData.keywords.forEach(k => {
             keySelect.innerHTML += `<option value="${k.name}">${k.name}</option>`;
         });
@@ -801,9 +794,13 @@
     function renderAdminLists() {
         let keyDiv = document.getElementById('adminKeywordList');
         keyDiv.innerHTML = '';
-        cloudData.keywords.forEach((k) => {
-            keyDiv.innerHTML += `<div class="item-row"><span>${k.name}</span> <button class="secondary" style="width:auto; padding:2px 5px;" onclick="deleteKeyword('${k.name}')">Löschen</button></div>`;
-        });
+        if(cloudData.keywords.length === 0) {
+            keyDiv.innerHTML = `<div style="color:var(--text-muted); font-size:0.75rem; text-align:center;">Keine Stichworte hinterlegt.</div>`;
+        } else {
+            cloudData.keywords.forEach((k) => {
+                keyDiv.innerHTML += `<div class="item-row"><span>${k.name}</span> <button class="secondary" style="width:auto; padding:2px 5px;" onclick="deleteKeyword('${k.name}')">Löschen</button></div>`;
+            });
+        }
 
         let accDiv = document.getElementById('adminAccountList');
         accDiv.innerHTML = '';
@@ -858,6 +855,11 @@
         if (currentUser.canEdit === false && !currentUser.isAdmin) return;
 
         let type = document.getElementById('incType').value;
+        if(!type) {
+            alert("Bitte erst im Admin-Menü ein Einsatz-Stichwort anlegen!");
+            return;
+        }
+
         let location = document.getElementById('incLocationText').value.trim();
         let patient = document.getElementById('incPatient').value.trim() || 'Unbekannt';
         let description = document.getElementById('incDescription').value.trim();
@@ -1224,7 +1226,6 @@
         });
     }
 
-    // Starte die Cloud-Verbindung beim Öffnen der Seite
     initCloudSync();
 </script>
 </body>

@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDP-Light // JF Einsatzleitung (Cloud Live)</title>
+
+    <!-- Firebase SDKs laden -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --accent-red: #d32f2f;
+            --accent-orange: #f57c00;
+            --accent-green: #388e3c;
+            --accent-blue: #1976d2;
+            --accent-purple: #7b1fa2;
+            --text-color: #e0e0e0;
+            --text-muted: #9e9e9e;
+            --border-color: #333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* LOGIN SCREEN */
+        #loginScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(18, 18, 18, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 30px;
+            border-radius: 8px;
+            width: 350px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+        }
+
+        .login-box h2 {
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            text-align: center;
+            border-bottom: 2px solid var(--accent-red);
+            padding-bottom: 10px;
+        }
+
+        /* HEADER */
+        header {
+            background-color: #000;
+            border-bottom: 3px solid var(--accent-red);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .logo-area h1 {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .logo-area span {
+            color: var(--accent-red);
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .clock {
+            font-family: monospace;
+            font-size: 1.1rem;
+            background: #222;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* APP LAYOUT GRID */
+        .app-container {
+            display: none;
+            grid-template-columns: 320px 1fr 380px;
+            gap: 10px;
+            padding: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background-color: #252525;
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .panel-body {
+            padding: 10px;
+            overflow-y: auto;
+            flex: 1;
+            font-size: 0.85rem;
+        }
+
+        .right-column-panel {
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* FORMULARE & BUTTONS */
+        .form-group {
+            margin-bottom: 8px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 5px;
+            background: #2a2a2a;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        input:disabled, select:disabled, textarea:disabled {
+            background: #181818;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        button {
+            background-color: var(--accent-red);
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+            font-size: 0.85rem;
+        }
+
+        button:hover { background-color: #b71c1c; }
+        button:disabled { background-color: #333 !important; color: #666 !important; cursor: not-allowed; }
+        button.secondary { background-color: #424242; }
+        button.secondary:hover { background-color: #616161; }
+        button.blue { background-color: var(--accent-blue); }
+        button.blue:hover { background-color: #115293; }
+
+        /* TABELLE */
+        .incident-list-panel {
+            grid-column: 2;
+            grid-row: 1;
+            height: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #252525;
+            color: var(--text-muted);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        tr:hover {
+            background-color: #2a2a2a;
+            cursor: pointer;
+        }
+
+        tr.selected {
+            background-color: #333;
+            border-left: 4px solid var(--accent-red);
+        }
+
+        /* BADGES */
+        .badge {
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .badge-neu { background: var(--accent-red); color: white; }
+        .badge-aktiv { background: var(--accent-orange); color: black; }
+        .badge-fertig { background: var(--accent-green); color: white; }
+        .badge-jf { background: var(--accent-blue); color: white; }
+        .badge-betreuer { background: var(--accent-purple); color: white; }
+        .badge-admin { background: var(--accent-red); color: white; }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 6px;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 0.8rem;
+        }
+
+        .log-entry {
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            border-left: 2px solid var(--text-muted);
+            padding-left: 5px;
+        }
+        .log-time { color: var(--text-muted); font-family: monospace; }
+
+        /* MODALS */
+        .custom-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 500;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            width: 750px;
+            max-height: 85vh;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .modal-body {
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .admin-section {
+            margin-bottom: 20px;
+            background: #252525;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .admin-section h3 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--accent-orange);
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN BILDSCHIRM -->
+<div id="loginScreen">
+    <div class="login-box">
+        <h2>EDP-Light // Cloud Login</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Benutzername</label>
+                <input type="text" id="loginUser" required placeholder="z.B. adminedp">
+            </div>
+            <div class="form-group">
+                <label>Passwort</label>
+                <input type="password" id="loginPass" required placeholder="Passwort">
+            </div>
+            <button type="submit" style="margin-top: 10px;">Anmelden</button>
+        </form>
+        <p id="loginError" style="color: var(--accent-red); font-size: 0.75rem; margin-top: 10px; text-align: center;"></p>
+    </div>
+</div>
+
+<!-- ADMIN PANEL MODAL -->
+<div id="adminModal" class="custom-modal">
+    <div class="modal-content">
+        <div class="panel-header">
+            <span>Administrator-Verwaltung (Cloud Sync)</span>
+            <button class="secondary" style="width: auto; padding: 2px 6px;" onclick="toggleAdminModal(false)">Schließen</button>
+        </div>
+        <div class="modal-body">
+            <div class="admin-section">
+                <h3>Einsatz-Stichworte verwalten</h3>
+                <form id="addKeywordForm" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="newKeyName" placeholder="Stichwort" required style="flex: 2;">
+                    <button type="submit" style="flex: 1;">Hinzufügen</button>
+                </form>
+                <div id="adminKeywordList" style="max-height: 100px; overflow-y: auto;"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>Benutzer-Accounts verwalten & anlegen</h3>
+                <form id="addAccountForm" style="margin-bottom: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                        <input type="text" id="accUser" placeholder="Benutzername" required>
+                        <input type="password" id="accPass" placeholder="Passwort" required>
+                        <select id="accCanEdit">
+                            <option value="true">Schreibrecht: Ja</option>
+                            <option value="false">Schreibrecht: Nein</option>
+                        </select>
+                    </div>
+                    <button type="submit">Account erstellen</button>
+                </form>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Vorhandene Accounts:</div>
+                <div id="adminAccountList" style="max-height: 140px; overflow-y: auto; background: #1a1a1a; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PASSWORT ÄNDERN MODAL -->
+<div id="changePasswordModal" class="custom-modal">
+    <div class="modal-content" style="width: 400px;">
+        <div class="panel-header">
+            <span>Eigenes Passwort ändern</span>
+            <button class="secondary" style="width: auto; padding: 2px 6px;" onclick="togglePasswordModal(false)">Schließen</button>
+        </div>
+        <div class="modal-body">
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label>Altes Passwort</label>
+                    <input type="password" id="oldPassInput" required placeholder="Bisheriges Passwort">
+                </div>
+                <div class="form-group">
+                    <label>Neues Passwort</label>
+                    <input type="password" id="newPassInput" required placeholder="Neues Passwort">
+                </div>
+                <div class="form-group">
+                    <label>Neues Passwort bestätigen</label>
+                    <input type="password" id="newPassConfirmInput" required placeholder="Neues Passwort wiederholen">
+                </div>
+                <button type="submit" style="margin-top: 10px;">Passwort speichern</button>
+            </form>
+            <p id="changePassError" style="color: var(--accent-red); font-size: 0.75rem; margin-top: 8px; text-align: center;"></p>
+        </div>
+    </div>
+</div>
+
+<!-- HAUPT-HEADER -->
+<header>
+    <div class="logo-area">
+        <h1>EDP-Light // <span id="currentAreaLabel">Jugendfeuerwehr</span></h1>
+    </div>
+    <div class="header-right">
+        <span id="currentUserDisplay" style="font-size: 0.85rem; color: var(--text-muted);">Eingeloggt als: -</span>
+        <button class="secondary" style="width: auto; padding: 4px 8px; font-size: 0.75rem;" onclick="togglePasswordModal(true)">Passwort ändern</button>
+        <button id="adminBtn" class="blue" style="width: auto; padding: 4px 10px; display: none;" onclick="toggleAdminModal(true)">Admin-Menü</button>
+        <div class="clock" id="liveClock">00:00:00</div>
+        <button class="secondary" style="width: auto; padding: 4px 10px;" onclick="logout()">Abmelden</button>
+    </div>
+</header>
+
+<!-- HAUPTANWENDUNG -->
+<div class="app-container" id="appContainer">
+
+    <!-- SPALTE 1 (Links) -->
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 320px; height: 100%;">
+        <panel style="flex: 1.2; min-height: 0;">
+            <div class="panel-header">Vorfall erfassen</div>
+            <div class="panel-body">
+                <form id="incidentForm">
+                    <div class="form-group">
+                        <label>Stichwort</label>
+                        <select id="incType" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ort / Einsatzstelle</label>
+                        <input type="text" id="incLocationText" placeholder="Ort / Adresse eingeben" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Betroffene Person / Objekt</label>
+                        <input type="text" id="incPatient" placeholder="Name / Objekt">
+                    </div>
+                    <div class="form-group">
+                        <label>Kurzbeschreibung / Lagemeldung</label>
+                        <textarea id="incDescription" rows="2" placeholder="Kurze Beschreibung des Einsatzes..."></textarea>
+                    </div>
+                    <button type="submit" id="btnCreateInc">Einsatz anlegen</button>
+                </form>
+            </div>
+        </panel>
+
+        <panel style="flex: 1; min-height: 0;">
+            <div class="panel-header">Anwesendes Personal</div>
+            <div class="panel-body" style="display: flex; flex-direction: column;">
+                <form id="addPersonForm" style="display: flex; gap: 5px; margin-bottom: 8px; flex-shrink: 0;">
+                    <input type="text" id="personName" placeholder="Name Einsatzkraft" required style="flex: 2;">
+                    <select id="personRole" style="flex: 1;">
+                        <option value="JF">JF</option>
+                        <option value="Betreuer">Betreuer</option>
+                    </select>
+                    <button type="submit" style="width: auto; padding: 4px 8px;">+</button>
+                </form>
+                <div id="personList" style="flex: 1; overflow-y: auto; min-height: 0;"></div>
+            </div>
+        </panel>
+    </div>
+
+    <!-- SPALTE 2: EINSATZLISTE (Mitte) -->
+    <panel class="incident-list-panel">
+        <div class="panel-header">
+            <span>Einsatz-Übersicht (Live Sync aktiv)</span>
+            <span id="permissionHint" style="font-size: 0.75rem; color: var(--accent-orange);"></span>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Zeit</th>
+                    <th>Stichwort</th>
+                    <th>Ort</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="incidentTableBody"></tbody>
+            </table>
+        </div>
+    </panel>
+
+    <!-- SPALTE 3 (Rechts) -->
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 380px; height: 100%;">
+        <panel class="right-column-panel">
+            <div class="panel-header">Einsatz-Details</div>
+            <div class="panel-body" id="detailPanel">
+                <p style="color: var(--text-muted); text-align: center; margin-top: 15px;">Wähle einen Einsatz aus.</p>
+            </div>
+        </panel>
+
+        <!-- FAHRZEUGE HINZUFÜGEN -->
+        <panel id="jfVehiclePanel" class="right-column-panel">
+            <div class="panel-header">Fahrzeuge verwalten</div>
+            <div class="panel-body" style="display: flex; flex-direction: column;">
+                <form id="addVehicleForm" style="display: flex; gap: 5px; margin-bottom: 6px; flex-shrink: 0;">
+                    <input type="text" id="vehType" placeholder="Typ (z.B. LF 10)" required style="flex: 1;">
+                    <input type="text" id="vehFunk" placeholder="Funkrufname" required style="flex: 1;">
+                    <button type="submit" style="width: auto; padding: 4px 8px;">Neu</button>
+                </form>
+                <div id="vehicleList" style="flex: 1; overflow-y: auto; min-height: 0;"></div>
+            </div>
+        </panel>
+
+        <!-- PERSONAL-ZUTEILUNG -->
+        <panel id="jfCrewPanel" class="right-column-panel">
+            <div class="panel-header">
+                <span>Personal-Zuteilung</span>
+                <span id="activeIncidentBadge" style="font-size: 0.7rem; background: #444; padding: 2px 5px; border-radius: 3px;">Kein Einsatz aktiv</span>
+            </div>
+            <div class="panel-body" style="display: flex; flex-direction: column;">
+                <form id="assignCrewForm" style="margin-bottom: 6px; flex-shrink: 0;">
+                    <div style="display: flex; gap: 5px; margin-bottom: 4px;">
+                        <select id="assignVehicle" required style="flex: 1;" disabled></select>
+                        <select id="assignPerson" required style="flex: 1;" disabled></select>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <select id="assignPosition" required style="flex: 2;" disabled>
+                            <option value="">-- Position wählen --</option>
+                            <option value="Maschinist">Maschinist</option>
+                            <option value="Gruppenführer">Gruppenführer</option>
+                            <option value="Zugführer">Zugführer</option>
+                            <option value="Einsatzleiter">Einsatzleiter</option>
+                            <option value="Melder">Melder</option>
+                            <option value="Truppmann">Truppmann</option>
+                            <option value="Truppführer">Truppführer</option>
+                            <option value="Angriffstruppmann">Angriffstruppmann</option>
+                            <option value="Angriffstruppführer">Angriffstruppführer</option>
+                            <option value="Wassertruppmann">Wassertruppmann</option>
+                            <option value="Wassertruppführer">Wassertruppführer</option>
+                            <option value="Schlauchtruppmann">Schlauchtruppmann</option>
+                            <option value="Schlauchtruppführer">Schlauchtruppführer</option>
+                            <option value="IUK-Einheit">IUK-Einheit</option>
+                            <option value="Führungsassistent">Führungsassistent</option>
+                        </select>
+                        <button type="submit" id="btnAssign" style="width: auto; padding: 4px 8px; flex: 1;" disabled>Zuteilen</button>
+                    </div>
+                </form>
+                <div id="assignedCrewList" style="flex: 1; overflow-y: auto; min-height: 0;"></div>
+            </div>
+        </panel>
+
+        <!-- TAGEBUCH -->
+        <panel class="right-column-panel" style="display: flex; flex-direction: column;">
+            <div class="panel-header">Tagebuch</div>
+            <div class="panel-body" id="logBook" style="flex: 1; min-height: 0;">
+                <div class="log-entry"><span class="log-time">[System]</span> Verbunden mit Live-Cloud.</div>
+            </div>
+            <div style="padding: 6px; background: #222; border-top: 1px solid var(--border-color); flex-shrink: 0;">
+                <form id="addLogNoteForm" style="display: flex; gap: 5px;">
+                    <input type="text" id="logNoteInput" placeholder="Info zu ausgewähltem Einsatz eintragen..." disabled style="flex: 1;">
+                    <button type="submit" id="btnLogNote" disabled style="width: auto; padding: 4px 8px;">Eintragen</button>
+                </form>
+            </div>
+        </panel>
+    </div>
+
+</div>
+
+<!-- JAVASCRIPT LOGIK MIT FIREBASE CLOUD SYNC -->
+<script>
+    // ==========================================
+    // FIREBASE KONFIGURATION ANPASSEN
+    // ==========================================
+    // 1. Gehe auf https://console.firebase.google.com/
+    // 2. Erstelle ein neues Projekt (kostenlos).
+    // 3. Füge eine Web-App hinzu und kopiere die Konfigurationsdaten hierher:
+    const firebaseConfig = {
+        apiKey: "DEINE_API_KEY",
+        authDomain: "DEIN_PROJEKT.firebaseapp.com",
+        projectId: "DEIN_PROJEKT_ID",
+        storageBucket: "DEIN_PROJEKT.appspot.com",
+        messagingSenderId: "SENDER_ID",
+        appId: "APP_ID"
+    };
+
+    // Fallback, falls Firebase nicht konfiguriert wurde, damit es nicht direkt abstürzt
+    try {
+        firebase.initializeApp(firebaseConfig);
+    } catch (e) {
+        console.warn("Firebase-Konfiguration fehlt oder ist ungültig. Bitte trage deine Konfigurationsdaten im Code ein.");
+    }
+
+    const db = typeof firebase !== 'undefined' && firebase.apps.length > 0 ? firebase.firestore() : null;
+
+    // Lokaler Cache für Echtzeitdaten aus der Cloud
+    let cloudData = {
+        accounts: [{ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true }],
+        keywords: [{ name: 'Kleinbrand (Übung)' }, { name: 'Technische Hilfeleistung' }],
+        incidents: [],
+        persons: [],
+        vehicles: [],
+        assignments: [],
+        logs: []
+    };
+
+    let currentUser = null;
+    let selectedIncidentId = null;
+
+    setInterval(() => {
+        document.getElementById('liveClock').innerText = new Date().toTimeString().split(' ')[0];
+    }, 1000);
+
+    // Echtzeit-Listener starten, sobald die App geladen wird
+    function initCloudSync() {
+        if (!db) {
+            alert("Achtung: Firebase ist nicht verbunden! Bitte trage oben im Skript deine Firebase-Konfigurationsdaten ein, damit die Live-Synchronisation auf Handys funktioniert.");
+            return;
+        }
+
+        // Live Sync Accounts
+        db.collection("config_accounts").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            if(items.length > 0) cloudData.accounts = items;
+            else seedDefaultData(); // Initiale Daten anlegen falls leer
+        });
+
+        // Live Sync Keywords
+        db.collection("config_keywords").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            if(items.length > 0) cloudData.keywords = items;
+            loadFormInputs();
+            if (currentUser && currentUser.isAdmin) renderAdminLists();
+        });
+
+        // Live Sync Incidents
+        db.collection("incidents").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            cloudData.incidents = items.sort((a,b) => b.id - a.id);
+            renderTable();
+        });
+
+        // Live Sync Persons
+        db.collection("persons").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            cloudData.persons = items;
+            renderPersons();
+            updateAssignDropdowns();
+        });
+
+        // Live Sync Vehicles
+        db.collection("vehicles").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            cloudData.vehicles = items;
+            renderVehicles();
+            updateAssignDropdowns();
+        });
+
+        // Live Sync Assignments
+        db.collection("assignments").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            cloudData.assignments = items;
+            renderAssignments();
+        });
+
+        // Live Sync Logs
+        db.collection("logs").onSnapshot(snapshot => {
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            cloudData.logs = items.sort((a,b) => (b.time > a.time ? 1 : -1));
+            renderGlobalLogs();
+        });
+    }
+
+    async function seedDefaultData() {
+        if(!db) return;
+        // Prüfen ob schon Daten da sind, sonst Standard eintragen
+        let snap = await db.collection("config_accounts").get();
+        if(snap.empty) {
+            db.collection("config_accounts").doc('adminedp').set({ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true });
+            db.collection("config_keywords").doc('k1').set({ name: 'Kleinbrand (Übung)' });
+            db.collection("config_keywords").doc('k2').set({ name: 'Technische Hilfeleistung' });
+        }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let u = document.getElementById('loginUser').value.trim();
+        let p = document.getElementById('loginPass').value.trim();
+
+        let found = cloudData.accounts.find(acc => acc.user === u && acc.pass === p);
+
+        if (found) {
+            currentUser = found;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'grid';
+            initApp();
+        } else {
+            document.getElementById('loginError').innerText = "Falscher Benutzername oder Passwort!";
+        }
+    });
+
+    function logout() {
+        currentUser = null;
+        selectedIncidentId = null;
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('loginForm').reset();
+        document.getElementById('loginError').innerText = '';
+        setCrewPanelActive(false, null);
+        setLogNoteActive(false, null);
+    }
+
+    function initApp() {
+        let roleText = currentUser.isAdmin ? 'Administrator' : 'Jugendfeuerwehr';
+        document.getElementById('currentUserDisplay').innerText = `Eingeloggt: ${currentUser.user} (${roleText})`;
+        document.getElementById('currentAreaLabel').innerText = roleText;
+
+        if (currentUser.isAdmin) {
+            document.getElementById('adminBtn').style.display = 'inline-block';
+        } else {
+            document.getElementById('adminBtn').style.display = 'none';
+        }
+
+        if (currentUser.canEdit === false && !currentUser.isAdmin) {
+            document.getElementById('btnCreateInc').disabled = true;
+            document.getElementById('btnCreateInc').innerText = "Keine Schreibrechte";
+            document.getElementById('permissionHint').innerText = "Nur Lese-Modus";
+        } else {
+            document.getElementById('btnCreateInc').disabled = false;
+            document.getElementById('btnCreateInc').innerText = "Einsatz anlegen";
+            document.getElementById('permissionHint').innerText = "";
+        }
+
+        loadFormInputs();
+        renderTable();
+        renderPersons();
+        renderVehicles();
+        setCrewPanelActive(false, null);
+        setLogNoteActive(false, null);
+        renderGlobalLogs();
+        if (currentUser.isAdmin) renderAdminLists();
+    }
+
+    function loadFormInputs() {
+        let keySelect = document.getElementById('incType');
+        keySelect.innerHTML = '';
+        cloudData.keywords.forEach(k => {
+            keySelect.innerHTML += `<option value="${k.name}">${k.name}</option>`;
+        });
+    }
+
+    function toggleAdminModal(show) {
+        document.getElementById('adminModal').style.display = show ? 'flex' : 'none';
+        if (show) renderAdminLists();
+    }
+
+    function togglePasswordModal(show) {
+        document.getElementById('changePasswordModal').style.display = show ? 'flex' : 'none';
+        document.getElementById('changePasswordForm').reset();
+        document.getElementById('changePassError').innerText = '';
+    }
+
+    document.getElementById('changePasswordForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let oldP = document.getElementById('oldPassInput').value;
+        let newP = document.getElementById('newPassInput').value;
+        let confP = document.getElementById('newPassConfirmInput').value;
+
+        if (newP !== confP) {
+            document.getElementById('changePassError').innerText = "Das neue Passwort stimmt nicht überein!";
+            return;
+        }
+
+        if (currentUser.pass !== oldP) {
+            document.getElementById('changePassError').innerText = "Das alte Passwort ist falsch!";
+            return;
+        }
+
+        currentUser.pass = newP;
+        if(db) {
+            db.collection("config_accounts").doc(currentUser.user).update({ pass: newP });
+        }
+
+        alert("Passwort erfolgreich geändert!");
+        togglePasswordModal(false);
+    });
+
+    function adminResetPassword(username) {
+        let newPass = prompt(`Neues Passwort für Benutzer "${username}" eingeben:`);
+        if (!newPass || newPass.trim() === "") return;
+
+        if(db) {
+            db.collection("config_accounts").doc(username).update({ pass: newPass.trim() }).then(() => {
+                alert(`Passwort für "${username}" wurde zurückgesetzt!`);
+            });
+        }
+    }
+
+    function adminDeleteAccount(username) {
+        if (username === 'adminedp') {
+            alert("Haupt-Admin kann nicht gelöscht werden!");
+            return;
+        }
+        if (!confirm(`Account "${username}" wirklich löschen?`)) return;
+
+        if(db) {
+            db.collection("config_accounts").doc(username).delete();
+        }
+    }
+
+    function renderAdminLists() {
+        let keyDiv = document.getElementById('adminKeywordList');
+        keyDiv.innerHTML = '';
+        cloudData.keywords.forEach((k, idx) => {
+            keyDiv.innerHTML += `<div class="item-row"><span>${k.name}</span> <button class="secondary" style="width:auto; padding:2px 5px;" onclick="deleteKeyword('${k.name}')">Löschen</button></div>`;
+        });
+
+        let accDiv = document.getElementById('adminAccountList');
+        accDiv.innerHTML = '';
+        cloudData.accounts.forEach(a => {
+            let badgeAreaClass = a.isAdmin ? 'badge-admin' : 'badge-jf';
+            let areaLabel = a.isAdmin ? 'Administrator' : 'Jugendfeuerwehr';
+            accDiv.innerHTML += `
+                <div class="item-row">
+                    <span><strong>${a.user}</strong> <span class="badge ${badgeAreaClass}">${areaLabel}</span> (Schreiben: ${a.canEdit ? 'Ja' : 'Nein'})</span>
+                    <div style="display:flex; gap:4px;">
+                        <button class="secondary" style="width:auto; padding:2px 6px;" onclick="adminResetPassword('${a.user}')">PW zurücksetzen</button>
+                        ${a.user !== 'adminedp' ? `<button class="secondary" style="width:auto; padding:2px 6px; background:#b71c1c;" onclick="adminDeleteAccount('${a.user}')">Löschen</button>` : ''}
+                    </div>
+                </div>`;
+        });
+    }
+
+    document.getElementById('addKeywordForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let name = document.getElementById('newKeyName').value.trim();
+        if(db) {
+            db.collection("config_keywords").doc(name).set({ name });
+        }
+        document.getElementById('newKeyName').value = '';
+    });
+
+    document.getElementById('addAccountForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let user = document.getElementById('accUser').value.trim();
+        let pass = document.getElementById('accPass').value.trim();
+        let canEdit = document.getElementById('accCanEdit').value === 'true';
+
+        if (cloudData.accounts.some(a => a.user === user)) {
+            alert("Benutzername existiert bereits!");
+            return;
+        }
+        if(db) {
+            db.collection("config_accounts").doc(user).set({ user, pass, isAdmin: false, canEdit });
+        }
+        document.getElementById('addAccountForm').reset();
+        alert("Account erfolgreich erstellt!");
+    });
+
+    function deleteKeyword(name) {
+        if(db) {
+            db.collection("config_keywords").doc(name).delete();
+        }
+    }
+
+    document.getElementById('incidentForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (currentUser.canEdit === false && !currentUser.isAdmin) return;
+
+        let type = document.getElementById('incType').value;
+        let location = document.getElementById('incLocationText').value.trim();
+        let patient = document.getElementById('incPatient').value.trim() || 'Unbekannt';
+        let description = document.getElementById('incDescription').value.trim();
+        let timeString = new Date().toTimeString().substring(0, 5);
+
+        let newId = Math.floor(100 + Math.random() * 900);
+        let newInc = {
+            id: newId,
+            time: timeString,
+            type: type,
+            location: location,
+            patient: patient,
+            description: description,
+            status: 'Neu'
+        };
+
+        if(db) {
+            db.collection("incidents").doc(String(newId)).set(newInc);
+            addLogCloud(newId, `Einsatz #${newId} (${type}) erfasst.`);
+            if (description) {
+                addLogCloud(newId, `Beschreibung: ${description}`);
+            }
+        }
+
+        document.getElementById('incLocationText').value = '';
+        document.getElementById('incDescription').value = '';
+        document.getElementById('incPatient').value = '';
+        selectedIncidentId = newId;
+    });
+
+    function renderTable() {
+        let tbody = document.getElementById('incidentTableBody');
+        tbody.innerHTML = '';
+
+        let filtered = cloudData.incidents;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Keine Einsätze vorhanden.</td></tr>`;
+            selectedIncidentId = null;
+            setCrewPanelActive(false, null);
+            setLogNoteActive(false, null);
+            renderDetails(null);
+            return;
+        }
+
+        if (!filtered.some(i => i.id === selectedIncidentId)) {
+            selectedIncidentId = filtered[0].id;
+        }
+
+        filtered.forEach(inc => {
+            let tr = document.createElement('tr');
+            if (inc.id === selectedIncidentId) tr.classList.add('selected');
+
+            let badgeClass = 'badge-neu';
+            if (inc.status === 'Aktiv') badgeClass = 'badge-aktiv';
+            if (inc.status === 'Abgeschlossen') badgeClass = 'badge-fertig';
+
+            tr.innerHTML = `
+                <td>#${inc.id}</td>
+                <td>${inc.time}</td>
+                <td>${inc.type}</td>
+                <td>${inc.location}</td>
+                <td><span class="badge ${badgeClass}">${inc.status}</span></td>
+            `;
+            tr.onclick = () => {
+                selectedIncidentId = inc.id;
+                renderTable();
+                renderDetails(inc.id);
+            };
+            tbody.appendChild(tr);
+        });
+
+        if (selectedIncidentId) {
+            let inc = cloudData.incidents.find(i => i.id === selectedIncidentId);
+            if (inc) {
+                setCrewPanelActive(true, inc);
+                setLogNoteActive(true, inc);
+                renderDetails(inc.id);
+            }
+        }
+    }
+
+    function setCrewPanelActive(isActive, inc = null) {
+        let vSel = document.getElementById('assignVehicle');
+        let pSel = document.getElementById('assignPerson');
+        let posSel = document.getElementById('assignPosition');
+        let btn = document.getElementById('btnAssign');
+        let badge = document.getElementById('activeIncidentBadge');
+
+        if (isActive && inc) {
+            badge.innerText = `Einsatz #${inc.id} (${inc.status})`;
+            if (inc.status === 'Abgeschlossen') {
+                badge.style.background = 'var(--accent-green)';
+                badge.style.color = 'white';
+                vSel.disabled = true;
+                pSel.disabled = true;
+                posSel.disabled = true;
+                btn.disabled = true;
+            } else {
+                badge.style.background = 'var(--accent-orange)';
+                badge.style.color = 'black';
+                vSel.disabled = false;
+                pSel.disabled = false;
+                posSel.disabled = false;
+                btn.disabled = false;
+                updateAssignDropdowns();
+            }
+            renderAssignments();
+        } else {
+            vSel.disabled = true;
+            pSel.disabled = true;
+            posSel.disabled = true;
+            btn.disabled = true;
+            badge.innerText = 'Kein aktiver Einsatz ausgewählt';
+            badge.style.background = '#444';
+            badge.style.color = 'var(--text-muted)';
+            document.getElementById('assignedCrewList').innerHTML = `<div style="color:var(--text-muted); text-align:center; font-size:0.75rem; margin-top:5px;">Bitte Einsatz wählen.</div>`;
+        }
+    }
+
+    function setLogNoteActive(isActive, inc = null) {
+        let input = document.getElementById('logNoteInput');
+        let btn = document.getElementById('btnLogNote');
+        if (isActive && inc && inc.status !== 'Abgeschlossen') {
+            input.disabled = false;
+            btn.disabled = false;
+            input.placeholder = `Info zu Einsatz #${inc.id} eintragen...`;
+        } else {
+            input.disabled = true;
+            btn.disabled = true;
+            input.placeholder = inc && inc.status === 'Abgeschlossen' ? "Einsatz ist abgeschlossen." : "Erst Einsatz auswählen...";
+        }
+    }
+
+    function renderDetails(id) {
+        let inc = cloudData.incidents.find(i => i.id === id);
+        let panel = document.getElementById('detailPanel');
+
+        if (!inc) {
+            panel.innerHTML = `<p style="color: var(--text-muted); text-align: center; margin-top: 15px;">Wähle einen Einsatz aus.</p>`;
+            return;
+        }
+
+        let canAction = currentUser.canEdit || currentUser.isAdmin;
+        let descHtml = inc.description ? `<br><strong>Beschreibung:</strong> ${inc.description}` : '';
+
+        panel.innerHTML = `
+            <div>
+                <strong>ID:</strong> #${inc.id}<br>
+                <strong>Stichwort:</strong> ${inc.type}<br>
+                <strong>Ort:</strong> ${inc.location}<br>
+                <strong>Betroffener:</strong> ${inc.patient}
+                ${descHtml}<br>
+                <strong>Status:</strong> ${inc.status}<br>
+                <hr style="border:0; border-top:1px solid var(--border-color); margin:6px 0;">
+                ${canAction ? `
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        ${inc.status !== 'Aktiv' ? `<button onclick="updateStatus(${inc.id}, 'Aktiv')">Status: In Bearbeitung</button>` : ''}
+                        ${inc.status !== 'Abgeschlossen' ? `<button class="secondary" style="background-color:var(--accent-green); color:white;" onclick="updateStatus(${inc.id}, 'Abgeschlossen')">Einsatz Beenden</button>` : ''}
+                        <button class="secondary" style="background-color:var(--accent-red); color:white; margin-top:4px;" onclick="deleteIncident(${inc.id})">Einsatz löschen</button>
+                    </div>
+                ` : `<em style="color:var(--text-muted);">Nur Lese-Rechte.</em>`}
+            </div>
+        `;
+        renderLogsForIncident(id);
+    }
+
+    function updateStatus(id, newStatus) {
+        let inc = cloudData.incidents.find(i => i.id === id);
+        if (inc && db) {
+            db.collection("incidents").doc(String(id)).update({ status: newStatus });
+            addLogCloud(id, `Einsatz #${id} Status geändert zu: ${newStatus}`);
+        }
+    }
+
+    function deleteIncident(id) {
+        if (!confirm(`Einsatz #${id} wirklich unwiderruflich löschen?`)) return;
+
+        if(db) {
+            db.collection("incidents").doc(String(id)).delete();
+            // Verknüpfte Zuteilungen & Logs löschen
+            cloudData.assignments.filter(a => a.incidentId === id).forEach(a => {
+                db.collection("assignments").doc(`${a.incidentId}_${a.person}`).delete();
+            });
+            cloudData.logs.filter(l => l.incidentId === id).forEach(l => {
+                db.collection("logs").doc(l.docId || `${l.incidentId}_${l.time}`).delete();
+            });
+        }
+
+        selectedIncidentId = null;
+    }
+
+    document.getElementById('addPersonForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let name = document.getElementById('personName').value.trim();
+        let role = document.getElementById('personRole').value;
+        if(db) {
+            db.collection("persons").doc(name).set({ name, role });
+        }
+        document.getElementById('personName').value = '';
+    });
+
+    function renderPersons() {
+        let list = document.getElementById('personList');
+        list.innerHTML = '';
+
+        cloudData.persons.forEach((p) => {
+            let roleBadge = p.role === 'Betreuer' ? '<span class="badge badge-betreuer">Betreuer</span>' : '<span class="badge badge-jf">JF</span>';
+            list.innerHTML += `<div class="item-row"><span>${p.name} ${roleBadge}</span> <button class="secondary" style="width:auto; padding:2px 5px;" onclick="deletePerson('${p.name}')">X</button></div>`;
+        });
+    }
+
+    function deletePerson(name) {
+        if(db) {
+            db.collection("persons").doc(name).delete();
+        }
+    }
+
+    document.getElementById('addVehicleForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let type = document.getElementById('vehType').value.trim();
+        let funk = document.getElementById('vehFunk').value.trim();
+        let docId = `${type}_${funk}`;
+
+        if(db) {
+            db.collection("vehicles").doc(docId).set({ type, funk });
+        }
+
+        document.getElementById('vehType').value = '';
+        document.getElementById('vehFunk').value = '';
+    });
+
+    function renderVehicles() {
+        let list = document.getElementById('vehicleList');
+        list.innerHTML = '';
+
+        cloudData.vehicles.forEach((v) => {
+            let docId = `${v.type}_${v.funk}`;
+            list.innerHTML += `<div class="item-row"><span>${v.type} (${v.funk})</span> <button class="secondary" style="width:auto; padding:2px 5px;" onclick="deleteVehicle('${docId}')">X</button></div>`;
+        });
+    }
+
+    function deleteVehicle(docId) {
+        if(db) {
+            db.collection("vehicles").doc(docId).delete();
+        }
+    }
+
+    function updateAssignDropdowns() {
+        let vSelect = document.getElementById('assignVehicle');
+        let pSelect = document.getElementById('assignPerson');
+
+        vSelect.innerHTML = '<option value="">-- Fahrzeug --</option>';
+        cloudData.vehicles.forEach(v => {
+            vSelect.innerHTML += `<option value="${v.type} (${v.funk})">${v.type} (${v.funk})</option>`;
+        });
+
+        pSelect.innerHTML = '<option value="">-- Person --</option>';
+        cloudData.persons.forEach(p => {
+            pSelect.innerHTML += `<option value="${p.name}">${p.name} (${p.role})</option>`;
+        });
+    }
+
+    document.getElementById('assignCrewForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!selectedIncidentId) return;
+
+        let vehicle = document.getElementById('assignVehicle').value;
+        let person = document.getElementById('assignPerson').value;
+        let position = document.getElementById('assignPosition').value;
+
+        if (!vehicle || !person || !position) return;
+
+        let inc = cloudData.incidents.find(i => i.id === selectedIncidentId);
+        if (inc && inc.status === 'Abgeschlossen') return;
+
+        let docId = `${selectedIncidentId}_${person}`;
+        if(db) {
+            db.collection("assignments").doc(docId).set({ incidentId: selectedIncidentId, vehicle, person, position });
+        }
+
+        document.getElementById('assignCrewForm').reset();
+        updateAssignDropdowns();
+    });
+
+    function renderAssignments() {
+        if (!selectedIncidentId) return;
+
+        let inc = cloudData.incidents.find(i => i.id === selectedIncidentId);
+        let list = document.getElementById('assignedCrewList');
+        list.innerHTML = '';
+
+        let filtered = cloudData.assignments.filter(a => a.incidentId === selectedIncidentId);
+
+        if (filtered.length === 0) {
+            list.innerHTML = `<div style="color:var(--text-muted); text-align:center; font-size:0.75rem; margin-top:5px;">Keine Zuteilungen vorhanden.</div>`;
+            return;
+        }
+
+        let isClosed = inc && inc.status === 'Abgeschlossen';
+        let canAction = (currentUser.canEdit || currentUser.isAdmin) && !isClosed;
+
+        filtered.forEach((a) => {
+            let docId = `${a.incidentId}_${a.person}`;
+            let deleteBtnHtml = canAction ? `<button class="secondary" style="width:auto; padding:2px 5px;" onclick="deleteAssignment('${docId}')">X</button>` : '';
+
+            list.innerHTML += `
+                <div class="item-row">
+                    <span><strong>${a.vehicle}</strong>: ${a.person} <em>(${a.position})</em></span>
+                    ${deleteBtnHtml}
+                </div>
+            `;
+        });
+    }
+
+    function deleteAssignment(docId) {
+        if(db) {
+            db.collection("assignments").doc(docId).delete();
+        }
+    }
+
+    document.getElementById('addLogNoteForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!selectedIncidentId) return;
+        let text = document.getElementById('logNoteInput').value.trim();
+        if (!text) return;
+
+        addLogCloud(selectedIncidentId, `[Einsatz #${selectedIncidentId}] ${text}`);
+        document.getElementById('logNoteInput').value = '';
+    });
+
+    function addLogCloud(incId, text) {
+        if(!db) return;
+        let time = new Date().toTimeString().substring(0, 8);
+        let dateKey = Date.now() + "_" + Math.floor(Math.random()*1000);
+        db.collection("logs").doc(dateKey).set({ docId: dateKey, incidentId: incId, time, text });
+    }
+
+    function renderGlobalLogs() {
+        let logBook = document.getElementById('logBook');
+        logBook.innerHTML = '';
+
+        if (cloudData.logs.length === 0) {
+            logBook.innerHTML = `<div class="log-entry"><span class="log-time">[System]</span> Bereit.</div>`;
+            return;
+        }
+
+        cloudData.logs.forEach(l => {
+            logBook.innerHTML += `<div class="log-entry"><span class="log-time">[${l.time}]</span> ${l.text}</div>`;
+        });
+    }
+
+    function renderLogsForIncident(id) {
+        let logBook = document.getElementById('logBook');
+        logBook.innerHTML = '';
+
+        let filtered = cloudData.logs.filter(l => l.incidentId === id || l.incidentId === 'System');
+        if (filtered.length === 0) {
+            logBook.innerHTML = `<div class="log-entry"><span class="log-time">[System]</span> Keine Einträge.</div>`;
+            return;
+        }
+
+        filtered.forEach(l => {
+            logBook.innerHTML += `<div class="log-entry"><span class="log-time">[${l.time}]</span> ${l.text}</div>`;
+        });
+    }
+
+    // Starte die Cloud-Verbindung beim Öffnen der Seite
+    initCloudSync();
+</script>
+</body>
+</html>

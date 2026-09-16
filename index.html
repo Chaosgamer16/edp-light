@@ -554,9 +554,6 @@
     // ==========================================
     // FIREBASE KONFIGURATION ANPASSEN
     // ==========================================
-    // 1. Gehe auf https://console.firebase.google.com/
-    // 2. Erstelle ein neues Projekt (kostenlos).
-    // 3. Füge eine Web-App hinzu und kopiere die Konfigurationsdaten hierher:
     const firebaseConfig = {
         apiKey: "DEINE_API_KEY",
         authDomain: "DEIN_PROJEKT.firebaseapp.com",
@@ -566,11 +563,13 @@
         appId: "APP_ID"
     };
 
-    // Fallback, falls Firebase nicht konfiguriert wurde, damit es nicht direkt abstürzt
+    // Fallback, falls Firebase nicht konfiguriert wurde
     try {
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
     } catch (e) {
-        console.warn("Firebase-Konfiguration fehlt oder ist ungültig. Bitte trage deine Konfigurationsdaten im Code ein.");
+        console.warn("Firebase-Konfiguration fehlt oder ist ungültig.");
     }
 
     const db = typeof firebase !== 'undefined' && firebase.apps.length > 0 ? firebase.firestore() : null;
@@ -596,16 +595,19 @@
     // Echtzeit-Listener starten, sobald die App geladen wird
     function initCloudSync() {
         if (!db) {
-            alert("Achtung: Firebase ist nicht verbunden! Bitte trage oben im Skript deine Firebase-Konfigurationsdaten ein, damit die Live-Synchronisation auf Handys funktioniert.");
+            alert("Achtung: Firebase ist nicht verbunden! Bitte trage oben im Skript deine Firebase-Konfigurationsdaten ein.");
             return;
         }
 
-        // Live Sync Accounts
+        // Live Sync Accounts (Sicherstellen, dass Standard-Admin immer existiert, ohne bestehende zu überschreiben)
         db.collection("config_accounts").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
-            if(items.length > 0) cloudData.accounts = items;
-            else seedDefaultData(); // Initiale Daten anlegen falls leer
+            if(items.length > 0) {
+                cloudData.accounts = items;
+            } else {
+                seedDefaultData();
+            }
         });
 
         // Live Sync Keywords
@@ -662,12 +664,11 @@
 
     async function seedDefaultData() {
         if(!db) return;
-        // Prüfen ob schon Daten da sind, sonst Standard eintragen
         let snap = await db.collection("config_accounts").get();
         if(snap.empty) {
             db.collection("config_accounts").doc('adminedp').set({ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true });
-            db.collection("config_keywords").doc('k1').set({ name: 'Kleinbrand (Übung)' });
-            db.collection("config_keywords").doc('k2').set({ name: 'Technische Hilfeleistung' });
+            db.collection("config_keywords").doc('Kleinbrand (Übung)').set({ name: 'Kleinbrand (Übung)' });
+            db.collection("config_keywords").doc('Technische Hilfeleistung').set({ name: 'Technische Hilfeleistung' });
         }
     }
 
@@ -800,7 +801,7 @@
     function renderAdminLists() {
         let keyDiv = document.getElementById('adminKeywordList');
         keyDiv.innerHTML = '';
-        cloudData.keywords.forEach((k, idx) => {
+        cloudData.keywords.forEach((k) => {
             keyDiv.innerHTML += `<div class="item-row"><span>${k.name}</span> <button class="secondary" style="width:auto; padding:2px 5px;" onclick="deleteKeyword('${k.name}')">Löschen</button></div>`;
         });
 
@@ -823,7 +824,7 @@
     document.getElementById('addKeywordForm').addEventListener('submit', (e) => {
         e.preventDefault();
         let name = document.getElementById('newKeyName').value.trim();
-        if(db) {
+        if(db && name) {
             db.collection("config_keywords").doc(name).set({ name });
         }
         document.getElementById('newKeyName').value = '';
@@ -1037,7 +1038,6 @@
 
         if(db) {
             db.collection("incidents").doc(String(id)).delete();
-            // Verknüpfte Zuteilungen & Logs löschen
             cloudData.assignments.filter(a => a.incidentId === id).forEach(a => {
                 db.collection("assignments").doc(`${a.incidentId}_${a.person}`).delete();
             });
@@ -1053,7 +1053,7 @@
         e.preventDefault();
         let name = document.getElementById('personName').value.trim();
         let role = document.getElementById('personRole').value;
-        if(db) {
+        if(db && name) {
             db.collection("persons").doc(name).set({ name, role });
         }
         document.getElementById('personName').value = '';
@@ -1081,7 +1081,7 @@
         let funk = document.getElementById('vehFunk').value.trim();
         let docId = `${type}_${funk}`;
 
-        if(db) {
+        if(db && type && funk) {
             db.collection("vehicles").doc(docId).set({ type, funk });
         }
 

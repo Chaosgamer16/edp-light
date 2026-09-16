@@ -575,7 +575,7 @@
 
     let cloudData = {
         accounts: [{ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true }],
-        keywords: [], // Startet komplett leer ohne Vorgaben
+        keywords: [],
         incidents: [],
         persons: [],
         vehicles: [],
@@ -609,7 +609,7 @@
         db.collection("config_keywords").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
-            cloudData.keywords = items; // Übernimmt genau das, was in der Cloud gespeichert ist (auch leer)
+            cloudData.keywords = items;
             loadFormInputs();
             if (currentUser && currentUser.isAdmin) renderAdminLists();
         });
@@ -657,7 +657,6 @@
         let snap = await db.collection("config_accounts").get();
         if(snap.empty) {
             db.collection("config_accounts").doc('adminedp').set({ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true });
-            // Keine Standard-Stichworte mehr angelegt
         }
     }
 
@@ -844,9 +843,19 @@
         alert("Account erfolgreich erstellt!");
     });
 
+    // Korrigierte Lösch-Funktion für Stichworte mit direktem Cloud-Delete
     function deleteKeyword(name) {
+        if (!confirm(`Stichwort "${name}" wirklich löschen?`)) return;
         if(db) {
-            db.collection("config_keywords").doc(name).delete();
+            db.collection("config_keywords").doc(name).delete().then(() => {
+                // Lokaler Array-Fallback zur sofortigen UI-Aktualisierung
+                cloudData.keywords = cloudData.keywords.filter(k => k.name !== name);
+                loadFormInputs();
+                renderAdminLists();
+            }).catch(err => {
+                console.error("Fehler beim Löschen des Stichworts:", err);
+                alert("Fehler beim Löschen in Firebase.");
+            });
         }
     }
 

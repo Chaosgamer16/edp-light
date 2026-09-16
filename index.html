@@ -574,7 +574,7 @@
     const db = typeof firebase !== 'undefined' && firebase.apps.length > 0 ? firebase.firestore() : null;
 
     let cloudData = {
-        accounts: [{ user: 'adminedp', pass: 'mariie.192', isAdmin: true, canEdit: true }],
+        accounts: [],
         keywords: [],
         incidents: [],
         persons: [],
@@ -596,13 +596,15 @@
             return;
         }
 
+        // Live-Sync für Accounts über Firestore (mit automatischer Anlage des Standard-Admins, falls leer)
         db.collection("config_accounts").onSnapshot(snapshot => {
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
-            if(items.length > 0) {
-                cloudData.accounts = items;
-            } else {
+            if(items.length === 0) {
                 seedDefaultData();
+            } else {
+                cloudData.accounts = items;
+                if (currentUser && currentUser.isAdmin) renderAdminLists();
             }
         });
 
@@ -826,6 +828,7 @@
         document.getElementById('newKeyName').value = '';
     });
 
+    // 100% Synchrone Account-Erstellung über Firestore-Dokumente
     document.getElementById('addAccountForm').addEventListener('submit', (e) => {
         e.preventDefault();
         let user = document.getElementById('accUser').value.trim();
@@ -836,19 +839,27 @@
             alert("Benutzername existiert bereits!");
             return;
         }
+
         if(db) {
-            db.collection("config_accounts").doc(user).set({ user, pass, isAdmin: false, canEdit });
+            db.collection("config_accounts").doc(user).set({
+                user: user,
+                pass: pass,
+                isAdmin: false,
+                canEdit: canEdit
+            }).then(() => {
+                document.getElementById('addAccountForm').reset();
+                alert(`Account "${user}" erfolgreich in der Cloud erstellt und auf allen Geräten synchronisiert!`);
+            }).catch(err => {
+                console.error("Fehler beim Erstellen des Accounts:", err);
+                alert("Fehler beim Speichern in Firebase.");
+            });
         }
-        document.getElementById('addAccountForm').reset();
-        alert("Account erfolgreich erstellt!");
     });
 
-    // Korrigierte Lösch-Funktion für Stichworte mit direktem Cloud-Delete
     function deleteKeyword(name) {
         if (!confirm(`Stichwort "${name}" wirklich löschen?`)) return;
         if(db) {
             db.collection("config_keywords").doc(name).delete().then(() => {
-                // Lokaler Array-Fallback zur sofortigen UI-Aktualisierung
                 cloudData.keywords = cloudData.keywords.filter(k => k.name !== name);
                 loadFormInputs();
                 renderAdminLists();
@@ -1207,7 +1218,7 @@
     }
 
     function renderGlobalLogs() {
-        let logBook = document.getElementById('logBook');
+        let logBook = dashboard = document.getElementById('logBook');
         logBook.innerHTML = '';
 
         if (cloudData.logs.length === 0) {
